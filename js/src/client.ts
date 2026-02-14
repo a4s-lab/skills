@@ -33,9 +33,16 @@ export class Client {
   private basePath: string;
   private fetcher: GitHubClient;
 
-  constructor(store: Store, basePath: string, options?: ClientOptions) {
+  constructor(store: Store, basePath?: string, options?: ClientOptions) {
     this.fileStore = store;
-    this.basePath = basePath;
+    const envBase = process.env.SKILLS_BASE_PATH ?? "";
+    if (basePath && envBase) {
+      this.basePath = join(envBase, basePath);
+    } else if (basePath || envBase) {
+      this.basePath = basePath || envBase;
+    } else {
+      throw new SkillsError("basePath is required (pass it directly or set SKILLS_BASE_PATH)");
+    }
     const token = options?.token ?? process.env.SKILLS_GITHUB_TOKEN;
     const baseUrl = options?.baseUrl ?? process.env.SKILLS_GITHUB_URL;
     this.fetcher = new GitHubClient({

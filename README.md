@@ -8,10 +8,10 @@ SDK for managing and resolving [agent skills](https://agentskills.io).
 
 ## Packages
 
-| Package                    | Description               |
-| -------------------------- | ------------------------- |
-| [skills-sdk](./js)         | JavaScript/TypeScript SDK |
-| [skills-sdk](./python)     | Python SDK                |
+| Package                | Description               |
+| ---------------------- | ------------------------- |
+| [skills-sdk](./js)     | JavaScript/TypeScript SDK |
+| [skills-sdk](./python) | Python SDK                |
 
 ## Install
 

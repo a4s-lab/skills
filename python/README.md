@@ -45,5 +45,6 @@ client = Client(FS(), "/tmp/skills")
 
 | Variable              | Description                                             |
 | --------------------- | ------------------------------------------------------- |
+| `SKILLS_BASE_PATH`    | Base path for storing skills (used when omitted)        |
 | `SKILLS_GITHUB_TOKEN` | GitHub token for private repos                          |
 | `SKILLS_GITHUB_URL`   | GitHub API base URL (default: `https://api.github.com`) |

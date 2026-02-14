@@ -29,11 +29,19 @@ class Client:
     def __init__(
         self,
         store: Store,
-        base_path: str,
+        base_path: str | None = None,
         options: ClientOptions | None = None,
     ) -> None:
         self._store = store
-        self._base_path = base_path
+        env_base = os.environ.get("SKILLS_BASE_PATH") or ""
+        if base_path and env_base:
+            self._base_path = posixpath.join(env_base, base_path)
+        elif base_path or env_base:
+            self._base_path = base_path or env_base
+        else:
+            raise SkillsError(
+                "base_path is required (pass it directly or set SKILLS_BASE_PATH)"
+            )
         token = (options and options.token) or os.environ.get("SKILLS_GITHUB_TOKEN")
         base_url = (options and options.base_url) or os.environ.get("SKILLS_GITHUB_URL")
         self._fetcher = GitHubClient(token=token, base_url=base_url)

@@ -29,9 +29,10 @@ const client = new Client(new FS(), "/tmp/skills", {
 });
 
 // or via environment
+// SKILLS_BASE_PATH=/tmp/skills
 // SKILLS_GITHUB_TOKEN=ghp_...
 // SKILLS_GITHUB_URL=https://github.example.com/api/v3  (optional, for GHE)
-const client = new Client(new FS(), "/tmp/skills");
+const client = new Client(new FS());
 ```
 
 ### Fetch skills from GitHub
