@@ -1,0 +1,28 @@
+name: Publish to PyPI
+
+on:
+  push:
+    branches: [main]
+    paths: [python/**]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+
+      - run: uv sync --frozen
+      - run: uv run ruff check src/
+      - run: uv run ruff format --check src/
+      - run: uv build
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist/
