@@ -8,15 +8,28 @@ SDK for managing and resolving [agent skills](https://agentskills.io).
 
 ## Packages
 
-| Package            | Description               |
-| ------------------ | ------------------------- |
-| [skills-sdk](./js) | JavaScript/TypeScript SDK |
+| Package                    | Description               |
+| -------------------------- | ------------------------- |
+| [skills-sdk](./js)         | JavaScript/TypeScript SDK |
+| [skills-sdk](./python)     | Python SDK                |
 
 ## Install
 
 ```bash
+# JavaScript/TypeScript
 npm install skills-sdk
+
+# Python
+pip install skills-sdk
 ```
+
+## Environment Variables
+
+| Variable              | Required | Description                                                |
+| --------------------- | -------- | ---------------------------------------------------------- |
+| `SKILLS_GITHUB_TOKEN` | no       | GitHub personal access token for private repos             |
+| `SKILLS_GITHUB_URL`   | no       | GitHub API base URL. Defaults to `https://api.github.com`. |
+| `SKILLS_BASE_PATH`    | yes      | Base path for storing skills.                              |
 
 ## API
 
