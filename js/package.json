@@ -8,6 +8,11 @@
     "skills"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/a4s-lab/skills.git",
+    "directory": "js"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
