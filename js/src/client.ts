@@ -46,25 +46,22 @@ export class Client {
 
   /** List metadata for all skills in a remote GitHub repository. */
   async listRemote(owner: string, repo: string, ref?: string): Promise<Metadata[]> {
-    const tree = await this.fetcher.getTree(owner, repo, ref);
-    const discovered = discoverSkills(tree);
-
-    const results = await Promise.all(
-      discovered.map(async (skill) => {
-        const blob = await this.fetcher.getBlob(owner, repo, skill.skillMdSha);
-        const content = Buffer.from(blob.content, "base64").toString("utf-8");
-        const { metadata } = parseSkillMd(content);
-        return metadata;
-      }),
-    );
-
-    return results;
+    const repoFiles = await this.fetcher.fetchRepo(owner, repo, ref);
+    const discovered = discoverSkills(repoFiles);
+    return discovered.map((skill) => {
+      const { metadata } = parseSkillMd(skill.skillMdContent.toString("utf-8"));
+      return metadata;
+    });
   }
 
-  /** Fetch skills from a GitHub repository and write them to local storage. */
+  /**
+   * Fetch skills from a GitHub repository and write them to local storage.
+   * Downloads the entire repo as a tarball (1 API request) even when storing
+   * a single skill -- at typical repo sizes this is faster than per-file fetching.
+   */
   async store(owner: string, repo: string, options?: StoreOptions): Promise<void> {
-    const tree = await this.fetcher.getTree(owner, repo, options?.ref);
-    let discovered = discoverSkills(tree);
+    const repoFiles = await this.fetcher.fetchRepo(owner, repo, options?.ref);
+    let discovered = discoverSkills(repoFiles);
 
     if (options?.name) {
       discovered = discovered.filter((s) => s.directoryName === options.name);
@@ -74,22 +71,12 @@ export class Client {
     }
 
     for (const skill of discovered) {
-      const skillBlob = await this.fetcher.getBlob(owner, repo, skill.skillMdSha);
-      const skillContent = Buffer.from(skillBlob.content, "base64").toString("utf-8");
-      const { metadata } = parseSkillMd(skillContent);
-
+      const { metadata } = parseSkillMd(skill.skillMdContent.toString("utf-8"));
       const skillDir = join(this.basePath, metadata.name);
-      await this.fileStore.write(join(skillDir, SKILL_MD), Buffer.from(skillContent, "utf-8"));
 
-      const fileBlobs = await Promise.all(
-        skill.files.map(async (fileEntry) => {
-          const blob = await this.fetcher.getBlob(owner, repo, fileEntry.sha);
-          const relPath = skill.path === "." ? fileEntry.path : fileEntry.path.slice(skill.path.length + 1);
-          return { relPath, content: Buffer.from(blob.content, "base64") };
-        }),
-      );
+      await this.fileStore.write(join(skillDir, SKILL_MD), skill.skillMdContent);
 
-      for (const { relPath, content } of fileBlobs) {
+      for (const [relPath, content] of skill.files) {
         await this.fileStore.write(join(skillDir, relPath), content);
       }
     }

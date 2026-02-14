@@ -1,33 +1,13 @@
 import { GitHubFetchError } from "./errors.js";
+import { parseTarGz } from "./tarball.js";
 
 const DEFAULT_BASE_URL = "https://api.github.com";
-
-interface GitHubTreeEntry {
-  path: string;
-  mode: string;
-  type: string;
-  sha: string;
-  size?: number;
-}
-
-interface GitHubTree {
-  sha: string;
-  tree: GitHubTreeEntry[];
-  truncated: boolean;
-}
-
-interface GitHubBlob {
-  sha: string;
-  content: string;
-  encoding: string;
-  size: number;
-}
 
 export interface DiscoveredSkill {
   path: string;
   directoryName: string;
-  skillMdSha: string;
-  files: GitHubTreeEntry[];
+  skillMdContent: Buffer;
+  files: Map<string, Buffer>;
 }
 
 interface GitHubClientOptions {
@@ -35,9 +15,6 @@ interface GitHubClientOptions {
   baseUrl?: string;
 }
 
-/**
- * Client for the GitHub REST API.
- */
 export class GitHubClient {
   private baseUrl: string;
   private token: string | undefined;
@@ -47,16 +24,15 @@ export class GitHubClient {
     this.token = options?.token;
   }
 
-  private async request<T>(path: string): Promise<T> {
+  async fetchRepo(owner: string, repo: string, ref?: string): Promise<Map<string, Buffer>> {
+    const path = ref ? `/repos/${owner}/${repo}/tarball/${ref}` : `/repos/${owner}/${repo}/tarball`;
     const url = `${this.baseUrl}${path}`;
-    const headers: Record<string, string> = {
-      Accept: "application/vnd.github+json",
-    };
+    const headers: Record<string, string> = {};
     if (this.token) {
       headers.Authorization = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers, redirect: "follow" });
     if (!response.ok) {
       throw new GitHubFetchError(
         response.status,
@@ -64,46 +40,51 @@ export class GitHubClient {
       );
     }
 
-    return response.json() as Promise<T>;
-  }
-
-  async getDefaultBranch(owner: string, repo: string): Promise<string> {
-    const data = await this.request<{ default_branch: string }>(`/repos/${owner}/${repo}`);
-    return data.default_branch;
-  }
-
-  async getTree(owner: string, repo: string, ref?: string): Promise<GitHubTree> {
-    const resolvedRef = ref ?? (await this.getDefaultBranch(owner, repo));
-    return this.request<GitHubTree>(`/repos/${owner}/${repo}/git/trees/${resolvedRef}?recursive=1`);
-  }
-
-  async getBlob(owner: string, repo: string, sha: string): Promise<GitHubBlob> {
-    return this.request<GitHubBlob>(`/repos/${owner}/${repo}/git/blobs/${sha}`);
+    const arrayBuffer = await response.arrayBuffer();
+    return parseTarGz(Buffer.from(arrayBuffer));
   }
 }
 
-export function discoverSkills(tree: GitHubTree): DiscoveredSkill[] {
-  const skillEntries = tree.tree.filter(
-    (entry) => entry.type === "blob" && (entry.path === "SKILL.md" || entry.path.endsWith("/SKILL.md")),
-  );
+export function discoverSkills(files: Map<string, Buffer>): DiscoveredSkill[] {
+  // Pass 1: find all SKILL.md locations
+  const skillMdEntries: { skillDir: string; content: Buffer }[] = [];
+  for (const [path, content] of files) {
+    if (path === "SKILL.md" || path.endsWith("/SKILL.md")) {
+      const skillDir = path === "SKILL.md" ? "" : path.slice(0, path.lastIndexOf("/"));
+      skillMdEntries.push({ skillDir, content });
+    }
+  }
 
-  return skillEntries.map((entry) => {
-    const skillDir = entry.path === "SKILL.md" ? "" : entry.path.slice(0, entry.path.lastIndexOf("/"));
+  // Pass 2: bucket each non-SKILL.md file into its owning skill directory
+  const buckets = new Map<string, Map<string, Buffer>>();
+  for (const { skillDir } of skillMdEntries) {
+    buckets.set(skillDir, new Map());
+  }
 
-    const directoryName = skillDir.includes("/") ? skillDir.slice(skillDir.lastIndexOf("/") + 1) : skillDir || "root";
+  for (const [filePath, fileContent] of files) {
+    if (filePath === "SKILL.md" || filePath.endsWith("/SKILL.md")) continue;
 
-    const files = tree.tree.filter(
-      (e) =>
-        e.type === "blob" &&
-        e.path !== entry.path &&
-        (skillDir === "" ? !e.path.includes("/") : e.path.startsWith(skillDir + "/")),
-    );
+    for (const skillDir of buckets.keys()) {
+      if (skillDir === "") {
+        if (!filePath.includes("/")) {
+          buckets.get(skillDir)!.set(filePath, fileContent);
+        }
+      } else if (filePath.startsWith(skillDir + "/")) {
+        buckets.get(skillDir)!.set(filePath.slice(skillDir.length + 1), fileContent);
+      }
+    }
+  }
 
-    return {
-      path: skillDir || ".",
-      directoryName,
-      skillMdSha: entry.sha,
-      files,
-    };
-  });
+  return skillMdEntries.map(({ skillDir, content }) => ({
+    path: skillDir || ".",
+    directoryName: getDirectoryName(skillDir),
+    skillMdContent: content,
+    files: buckets.get(skillDir)!,
+  }));
+}
+
+function getDirectoryName(skillDir: string): string {
+  if (!skillDir) return "root";
+  const lastSlash = skillDir.lastIndexOf("/");
+  return lastSlash === -1 ? skillDir : skillDir.slice(lastSlash + 1);
 }
