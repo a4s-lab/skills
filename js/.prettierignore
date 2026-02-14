@@ -1,0 +1,8 @@
+.next/
+build/
+dist/
+node_modules/
+out/
+pnpm-lock.yaml
+
+components/ui/

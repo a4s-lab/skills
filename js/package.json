@@ -1,0 +1,33 @@
+{
+  "name": "skills-sdk",
+  "version": "0.1.0",
+  "description": "Skills SDK for JavaScript",
+  "type": "module",
+  "keywords": [
+    "agent skills",
+    "skills"
+  ],
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "gray-matter": "^4"
+  },
+  "devDependencies": {
+    "@types/node": "^25",
+    "prettier": "^3.8.1",
+    "typescript": "^5",
+    "vitest": "^3"
+  }
+}
